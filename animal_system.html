@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>动物人格测评系统（专业版）</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{font-family:Arial;background:#f4f6f9;padding:20px;}
+.container{max-width:900px;margin:auto;background:#fff;padding:20px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,0.1);}
+h1{text-align:center;}
+button{padding:10px 18px;margin-top:15px;}
+.hidden{display:none;}
+.question{margin-bottom:15px;}
+</style>
+</head>
+<body>
+
+<div class="container" id="startPage">
+<h1>动物人格测评</h1>
+<p>请输入你的姓名开始测试：</p>
+<input id="username">
+<br>
+<button onclick="startTest()">开始测试</button>
+</div>
+
+<div class="container hidden" id="testPage">
+<h1>动物人格测试（20题）</h1>
+<form id="quizForm"></form>
+<button onclick="submitTest()">提交测试</button>
+</div>
+
+<div class="container hidden" id="resultPage">
+<h1>你的专属人格报告</h1>
+<canvas id="radarChart"></canvas>
+<div id="resultText"></div>
+<button onclick="downloadPDF()">下载PDF报告</button>
+</div>
+
+<script>
+
+let currentUser="";
+let scores={lion:0,tiger:0,koala:0,owl:0};
+
+const questions=[
+"当团队意见不统一时，你通常会？",
+"面对压力时你更可能？",
+"做决定时你依赖？",
+"朋友眼中的你是？",
+"工作中你最看重？",
+"遇到挑战时你会？",
+"在人际关系中你更倾向？",
+"当计划改变时你会？",
+"别人批评你时你会？",
+"你喜欢的工作节奏是？",
+"你对规则的态度是？",
+"你在会议中的表现是？",
+"面对拖延的人你会？",
+"你如何看待风险？",
+"你更擅长？",
+"在冲突中你会？",
+"你对细节的态度是？",
+"你喜欢的领导方式是？",
+"当别人依赖你时？",
+"你最不能忍受的是？"
+];
+
+const options={
+lion:["主导方向","强势应对","快速拍板","有领导力","结果导向","迎难而上","掌控局面","立即调整","直接回应","高效率","规则为目标服务","主导讨论","直接催促","大胆承担","战略规划","正面解决","关注大方向","明确指挥","承担责任","效率低下"],
+tiger:["迅速行动","积极突破","直觉判断","充满激情","速度第一","主动出击","活跃气氛","随机应变","反击回去","快速推进","灵活处理","频繁发言","立刻推进","愿意尝试","执行落实","情绪表达","重视行动","激励带动","快速帮忙","拖泥带水"],
+koala:["协调关系","寻求支持","听取建议","温和体贴","团队和谐","稳步推进","维持和谐","缓慢适应","自我反思","稳定节奏","遵守规则","倾听他人","耐心沟通","谨慎评估","支持协助","缓解矛盾","关注他人感受","民主协商","默默付出","冲突争吵"],
+owl:["分析原因","冷静分析","数据依据","理性冷静","准确无误","制定计划","理性沟通","评估影响","逻辑回应","按部就班","严格遵守","记录重点","制定流程","计算风险","数据分析","理性讨论","关注细节","制度管理","系统解决","混乱无序"]
+};
+
+function startTest(){
+    let u=document.getElementById("username").value;
+    if(!u){alert("请输入姓名");return;}
+    currentUser=u;
+    document.getElementById("startPage").classList.add("hidden");
+    document.getElementById("testPage").classList.remove("hidden");
+    generateQuestions();
+}
+
+function generateQuestions(){
+    const form=document.getElementById("quizForm");
+    for(let i=0;i<20;i++){
+        let q=document.createElement("div");
+        q.className="question";
+        q.innerHTML="<b>"+(i+1)+". "+questions[i]+"</b><br>";
+        for(let type in options){
+            q.innerHTML+=`<label><input type="radio" name="q${i}" value="${type}">${options[type][i]}</label><br>`;
+        }
+        form.appendChild(q);
+    }
+}
+
+function submitTest(){
+    scores={lion:0,tiger:0,koala:0,owl:0};
+    for(let i=0;i<20;i++){
+        let ans=document.querySelector('input[name="q'+i+'"]:checked');
+        if(!ans){alert("请完成所有题目");return;}
+        scores[ans.value]++;
+    }
+    showResult();
+}
+
+function showResult(){
+    document.getElementById("testPage").classList.add("hidden");
+    document.getElementById("resultPage").classList.remove("hidden");
+
+    let total=20;
+    let percent={
+        lion:(scores.lion/total*100).toFixed(1),
+        tiger:(scores.tiger/total*100).toFixed(1),
+        koala:(scores.koala/total*100).toFixed(1),
+        owl:(scores.owl/total*100).toFixed(1)
+    };
+
+    new Chart(document.getElementById("radarChart"),{
+        type:"radar",
+        data:{
+            labels:["狮子","老虎","考拉","猫头鹰"],
+            datasets:[{
+                label:"人格比例",
+                data:[percent.lion,percent.tiger,percent.koala,percent.owl]
+            }]
+        }
+    });
+
+    let maxType=Object.keys(scores).reduce((a,b)=>scores[a]>scores[b]?a:b);
+
+    const report={
+lion:`<h2>🦁 狮子型人格</h2>
+<p><b>核心特质：</b>领导力强、目标导向、果断自信。</p>
+<p><b>优势：</b>决策能力强、抗压能力高、擅长带领团队。</p>
+<p><b>潜在盲点：</b>可能忽略他人感受，过于强势。</p>
+<p><b>职业建议：</b>管理者、创业者、项目负责人。</p>
+<p><b>情感建议：</b>学会倾听与尊重，避免控制欲过强。</p>
+<p><b>成长方向：</b>提升共情能力，打造影响力型领导。</p>`,
+
+tiger:`<h2>🐯 老虎型人格</h2>
+<p><b>核心特质：</b>行动力强、激情充沛、勇于挑战。</p>
+<p><b>优势：</b>执行迅速、带动气氛、突破能力强。</p>
+<p><b>潜在盲点：</b>冲动决策，缺乏耐心。</p>
+<p><b>职业建议：</b>销售、市场、创业先锋。</p>
+<p><b>情感建议：</b>避免情绪化沟通。</p>
+<p><b>成长方向：</b>培养战略思维与持续力。</p>`,
+
+koala:`<h2>🐨 考拉型人格</h2>
+<p><b>核心特质：</b>温和稳定、重视关系、善于协调。</p>
+<p><b>优势：</b>团队润滑剂、信任感强。</p>
+<p><b>潜在盲点：</b>优柔寡断、害怕冲突。</p>
+<p><b>职业建议：</b>人力资源、客服、心理辅导。</p>
+<p><b>情感建议：</b>学会表达真实需求。</p>
+<p><b>成长方向：</b>提升决断能力。</p>`,
+
+owl:`<h2>🦉 猫头鹰型人格</h2>
+<p><b>核心特质：</b>理性分析、注重细节、逻辑严谨。</p>
+<p><b>优势：</b>规划能力强、风险控制优秀。</p>
+<p><b>潜在盲点：</b>过度挑剔、行动缓慢。</p>
+<p><b>职业建议：</b>财务、工程师、策略顾问。</p>
+<p><b>情感建议：</b>避免过度理性忽略情感。</p>
+<p><b>成长方向：</b>增强行动力。</p>`
+};
+
+    document.getElementById("resultText").innerHTML=
+    report[maxType]+
+    `<p><b>人格比例：</b> 狮子${percent.lion}% 老虎${percent.tiger}% 考拉${percent.koala}% 猫头鹰${percent.owl}%</p>`;
+}
+
+function downloadPDF(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.text("动物人格测评报告",20,20);
+    doc.text("姓名："+currentUser,20,30);
+    doc.save("report.pdf");
+}
+
+</script>
+
+</body>
+</html>
